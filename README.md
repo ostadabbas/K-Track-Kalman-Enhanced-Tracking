@@ -228,9 +228,9 @@ If you use KalmanTrack in your research, please cite:
 ```bibtex
 @software{kalmantrack2024,
   title={KalmanTrack: Fast Point Tracking using DINO Features and Kalman Filtering},
-  author={Your Name},
-  year={2024},
-  url={https://github.com/yourusername/kalmantrack}
+  author={Bishoy Galoaa},
+  year={2025},
+  url={https://github.com/galoaab/kalmantrack}
 }
 ```
 
