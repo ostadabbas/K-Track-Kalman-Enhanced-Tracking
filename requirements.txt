@@ -1,0 +1,25 @@
+# KalmanTrack Requirements
+# Core dependencies for DINO + Kalman Filter tracking
+
+# Deep Learning
+torch>=1.9.0
+torchvision>=0.10.0
+
+# Computer Vision
+opencv-python>=4.5.0
+Pillow>=8.0.0
+
+# Scientific Computing
+numpy>=1.20.0
+scipy>=1.7.0
+scikit-learn>=1.0.0
+
+# Visualization
+matplotlib>=3.3.0
+
+# Optional: For better performance
+# opencv-contrib-python>=4.5.0  # Uncomment if you need additional OpenCV features
+
+# Development (optional)
+# jupyter>=1.0.0
+# ipykernel>=6.0.0
