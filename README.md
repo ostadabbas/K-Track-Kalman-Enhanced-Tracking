@@ -224,7 +224,7 @@ If you use K-track in your research, please cite:
 ```bibtex
 @software{k-track2025,
   title={K-track: Accelerating Off-the-Shelf Point Trackers with Kalman Filtering},
-  author={Bishoy Galoaa},
+  author={Bishoy Galoaa and Pau Closas and Sarah Ostaddabas},
   year={2025},
   url={https://bitbucket.org/aclabneu/k-track}
 }
