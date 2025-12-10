@@ -1,6 +1,6 @@
 # K-track: Accelerating Off-the-Shelf Point Trackers with Kalman Filtering
 
-**K-track** is a hybrid tracking framework that accelerates state-of-the-art point trackers (CoTracker3, TAPIR, SpatialTracker, Track-On) by 3-10× while maintaining high accuracy. Instead of running expensive deep learning models every frame, K-track runs them only on keyframes and uses Kalman filtering to predict intermediate frame positions.
+**K-track** is a hybrid tracking framework that accelerates state-of-the-art point trackers (CoTracker3, SpatialTracker, Track-On) by 3-10× while maintaining high accuracy. Instead of running expensive deep learning models every frame, K-track runs them only on keyframes and uses Kalman filtering to predict intermediate frame positions.
 
 ## 🚀 Key Features
 
@@ -8,7 +8,7 @@
 - **Minimal Accuracy Loss**: Maintain 90-97% accuracy retention compared to baseline
 - **Pluggable Architecture**: Works with any point tracker implementing our interface
 - **Flexible Configuration**: Adjustable keyframe frequency (N) for speed/accuracy tradeoffs
-- **Production Ready**: Tested on DAVIS dataset with multiple trackers
+- **Production Ready**: Tested on DAVIS dataset with CoTracker3, SpatialTracker, and Track-On
 
 ## 📊 Performance Results
 
@@ -69,12 +69,6 @@ K-track supports multiple trackers. Install the ones you need:
 # Automatically downloaded via torch.hub on first use
 ```
 
-**TAPIR**:
-```bash
-# See TAPIR_INSTALLATION.md for detailed setup
-pip install jax jaxlib dm-haiku optax einops
-```
-
 **SpatialTracker**:
 ```bash
 # Clone SpaTracker repository into project root
@@ -107,7 +101,7 @@ tracker = KalmanTrackHybrid(
     N=5,  # Keyframe frequency
     warmup=3,  # Initial frames to always run tracker
     device='cuda',
-    tracker_type='cotracker3'  # or 'tapir', 'spatracker', 'trackon'
+    tracker_type='cotracker3'  # or 'spatracker', 'trackon'
 )
 
 # Initialize
@@ -127,11 +121,8 @@ for frame_idx in range(1, video.shape[1]):
 ### Example: Tracking with Different Trackers
 
 ```python
-# CoTracker3 (fastest setup)
+# CoTracker3 (fastest setup, recommended)
 tracker = KalmanTrackHybrid(N=5, tracker_type='cotracker3')
-
-# TAPIR
-tracker = KalmanTrackHybrid(N=5, tracker_type='tapir')
 
 # SpatialTracker (with grid size)
 tracker = KalmanTrackHybrid(N=5, tracker_type='spatracker', grid_size=20)
@@ -246,9 +237,10 @@ MIT License - see LICENSE file for details.
 ## 🙏 Acknowledgments
 
 - **CoTracker3**: [facebookresearch/co-tracker](https://github.com/facebookresearch/co-tracker)
-- **TAPIR**: [google-deepmind/tapnet](https://github.com/google-deepmind/tapnet)
 - **SpatialTracker**: [Zhengfei-Phy/SpaTracker](https://github.com/Zhengfei-Phy/SpaTracker)
 - **Track-On**: [Zhengfei-Phy/Track-ON](https://github.com/Zhengfei-Phy/Track-ON)
+
+*Note: K-track has been tested and evaluated on CoTracker3, SpatialTracker, and Track-On. TAPIR support is available but not yet evaluated.*
 
 ## 📧 Contact
 
