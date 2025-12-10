@@ -1,4 +1,44 @@
+# K-track .gitignore
+
+# Outputs and results
 videos/
 outputs/
 __pycache__/
 .debug
+
+# Project documentation (not part of K-track core)
+*.md
+!README.md
+*.tex
+*.pdf
+
+# Old/unused code
+dino_extractor.py
+kalman_track.py
+kalman_filter.py
+demo.py
+improved_example.py
+debug_features.py
+
+# Analysis and test scripts
+test_*.py
+analyze_*.py
+run_*.py
+visualize_*.py
+synthetic_simulator.py
+clairvoyant_filter.py
+pcrb_*.py
+generate_*.py
+
+# Dependencies (should be installed separately)
+SpaTracker/
+track_on/
+tapnet/
+track-on-weights/
+
+# IDE and OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
