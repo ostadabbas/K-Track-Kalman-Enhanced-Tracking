@@ -1,5 +1,5 @@
-# KalmanTrack Requirements
-# Core dependencies for DINO + Kalman Filter tracking
+# K-track: Core Dependencies
+# Accelerating Off-the-Shelf Point Trackers with Kalman Filtering
 
 # Deep Learning
 torch>=1.9.0
@@ -12,14 +12,17 @@ Pillow>=8.0.0
 # Scientific Computing
 numpy>=1.20.0
 scipy>=1.7.0
-scikit-learn>=1.0.0
 
 # Visualization
 matplotlib>=3.3.0
 
-# Optional: For better performance
-# opencv-contrib-python>=4.5.0  # Uncomment if you need additional OpenCV features
-
-# Development (optional)
-# jupyter>=1.0.0
-# ipykernel>=6.0.0
+# Optional: TAPIR support
+# Uncomment if using TAPIR tracker
+# jax>=0.4.0
+# jaxlib>=0.4.0
+# dm-haiku>=0.0.8
+# optax>=0.1.0
+# einops>=0.6.0
+# ml-collections>=0.1.0
+# mediapy>=1.1.0
+# tensorflow_datasets>=4.0.0

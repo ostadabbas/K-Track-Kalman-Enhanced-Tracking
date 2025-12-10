@@ -14,6 +14,18 @@ from typing import Tuple, List, Optional, Dict
 from dataclasses import dataclass
 import time
 
+from point_tracker_base import PointTrackerBase
+from cotracker_tracker import CoTracker3Tracker
+# from tapir_tracker import TAPIRTracker
+try:
+    from spatracker_tracker import SpatialTrackerTracker
+except ImportError:
+    SpatialTrackerTracker = None
+try:
+    from trackon_tracker import TrackOnTracker
+except ImportError:
+    TrackOnTracker = None
+
 
 @dataclass
 class HybridTrackingResult:
@@ -93,20 +105,14 @@ class ConstantVelocityKalmanFilter:
         self.x = np.concatenate([position, velocity]).astype(np.float32)
         self.P = np.eye(4, dtype=np.float32) * 1.0  # Initial uncertainty
         
-    def predict(self) -> Tuple[np.ndarray, np.ndarray]:
+    def predict(self, q_scale: float = 1.0) -> None:
         """
-        Prediction step
-        
-        Returns:
-            Predicted state and covariance
+        Prediction step with optional scalar scaling of process noise.
         """
         # Predict state
         self.x = self.F @ self.x
-        
         # Predict covariance
-        self.P = self.F @ self.P @ self.F.T + self.Q
-        
-        return self.x.copy(), self.P.copy()
+        self.P = self.F @ self.P @ self.F.T + (self.Q * float(q_scale))
     
     def update(self, measurement: np.ndarray, measurement_noise: Optional[float] = None):
         """
@@ -145,56 +151,109 @@ class ConstantVelocityKalmanFilter:
         return self.x[:2].copy(), self.x[2:].copy(), self.P.copy()
 
 
+class ConstantAccelerationKalmanFilter:
+    """Unused (CA experiments removed); kept only for backward compatibility."""
+    pass
+
+
+class IMMCVCAFilter:
+    """Unused (IMM experiments removed); kept only for backward compatibility."""
+    pass
+
+
 class KalmanTrackHybrid:
     """
-    Hybrid tracker combining CoTracker3 with Kalman filtering
-    Runs CoTracker3 every N frames and uses Kalman for intermediate predictions
+    Hybrid tracker combining a deep point tracker with Kalman filtering.
+
+    Originally this used CoTracker3; it is now pluggable and can work with
+    other trackers (e.g., TAPIR) that implement `PointTrackerBase`.
     """
     
     def __init__(self,
                  N: int = 5,
+                 warmup: int = 3,
                  process_var_pos: float = 1e-4,
                  process_var_vel: float = 1e-2,
                  meas_var_pos: float = 0.1,
-                 device: str = 'cuda'):
+                 device: str = 'cuda',
+                 tracker_type: str = 'cotracker3',
+                 grid_size: int = 40,
+                 trackon_checkpoint: str = None,
+                 trackon_config: str = None):
         """
         Initialize hybrid tracker
         
         Args:
-            N: Run CoTracker3 every N frames
+            N: Run deep tracker every N frames (after warmup)
+            warmup: Number of initial frames to always run tracker (for velocity initialization)
             process_var_pos: Kalman process noise for position
             process_var_vel: Kalman process noise for velocity
             meas_var_pos: Kalman measurement noise
-            device: Device for CoTracker3
+            device: Device for the deep tracker
+            tracker_type: Which deep tracker to use ('cotracker3', 'tapir', 'spatracker', 'trackon')
+            grid_size: Grid size for SpatialTracker (only used if tracker_type='spatracker')
+            trackon_checkpoint: Path to Track-On checkpoint (only used if tracker_type='trackon')
+            trackon_config: Path to Track-On config file (only used if tracker_type='trackon')
         """
-        self.N = N
+        self.configured_N = N
+        self.N = max(1, N if N is not None else 1)
+        self.warmup = max(0, warmup if warmup is not None else 0)
+        self.cotracker_only = N == 0
         self.device = torch.device(device if torch.cuda.is_available() else 'cpu')
+        self.tracker_type = (tracker_type or 'cotracker3').lower()
+        self.grid_size = grid_size
+        self.trackon_checkpoint = trackon_checkpoint
+        self.trackon_config = trackon_config
         
         # Kalman filter parameters
         self.process_var_pos = process_var_pos
         self.process_var_vel = process_var_vel
         self.meas_var_pos = meas_var_pos
-        
-        # CoTracker3 model (loaded lazily)
-        self.cotracker = None
+        # Deep tracker wrapper (loaded lazily)
+        self.tracker: Optional[PointTrackerBase] = None
         
         # Tracking state
         self.kalman_filters = []  # One filter per point
         self.frame_count = 0
         self.n_points = 0
+        self.warmup_positions = []  # Store positions during warmup for velocity estimation
         
         # Performance tracking
         self.cotracker_calls = 0
         self.total_frames = 0
-        
-    def load_cotracker(self):
-        """Load CoTracker3 model"""
-        if self.cotracker is None:
-            print("Loading CoTracker3 offline model...")
-            self.cotracker = torch.hub.load("facebookresearch/co-tracker", "cotracker3_offline")
-            self.cotracker = self.cotracker.to(self.device)
-            self.cotracker.eval()
-            print(f"CoTracker3 loaded on {self.device}")
+
+        # No IMM or noise scheduling in the clean CV configuration
+
+    def _create_tracker(self) -> PointTrackerBase:
+        """Instantiate the appropriate deep tracker wrapper."""
+        if self.tracker_type in ("cotracker3", "cotracker"):
+            return CoTracker3Tracker(self.device)
+        if self.tracker_type == "tapir":
+            return TAPIRTracker(self.device, model_type='tapir')
+        if self.tracker_type in ("boosttapir", "boost_tapir"):
+            return TAPIRTracker(self.device, model_type='bootstapir')
+        if self.tracker_type in ("spatracker", "spatialtracker"):
+            if SpatialTrackerTracker is None:
+                raise ImportError("SpatialTrackerTracker not available. Make sure SpaTracker is set up.")
+            # Get grid_size from kwargs if provided
+            grid_size = getattr(self, 'grid_size', 40)
+            return SpatialTrackerTracker(self.device, grid_size=grid_size)
+        if self.tracker_type in ("trackon", "track-on", "trackon2"):
+            if TrackOnTracker is None:
+                raise ImportError("TrackOnTracker not available. Make sure track_on is set up.")
+            return TrackOnTracker(
+                self.device, 
+                checkpoint_path=self.trackon_checkpoint,
+                config_path=self.trackon_config
+            )
+        raise ValueError(f"Unknown tracker_type '{self.tracker_type}'")
+
+    def _ensure_tracker_loaded(self) -> None:
+        """Lazy construction and model loading for the deep tracker."""
+        if self.tracker is None:
+            self.tracker = self._create_tracker()
+        # Allow tracker implementation to handle idempotent loading
+        self.tracker.load_model()
     
     def initialize(self, video_tensor: torch.Tensor, initial_points: np.ndarray):
         """
@@ -204,24 +263,27 @@ class KalmanTrackHybrid:
             video_tensor: Video tensor [1, T, 3, H, W]
             initial_points: Initial point positions [N_points, 2] (x, y)
         """
-        self.load_cotracker()
+        # Ensure the deep tracker is ready
+        self._ensure_tracker_loaded()
         
         self.n_points = initial_points.shape[0]
         self.frame_count = 0
+        self.warmup_positions = []
         
-        # Initialize Kalman filters for each point
+        # Initialize Kalman filters for each point (pure CV model)
+        # Velocity will be estimated during warmup if warmup > 0
         self.kalman_filters = []
         for i in range(self.n_points):
             kf = ConstantVelocityKalmanFilter(
                 dt=1.0,
                 process_var_pos=self.process_var_pos,
                 process_var_vel=self.process_var_vel,
-                meas_var_pos=self.meas_var_pos
+                meas_var_pos=self.meas_var_pos,
             )
-            kf.initialize(initial_points[i])
+            kf.initialize(initial_points[i])  # Initialize with zero velocity for now
             self.kalman_filters.append(kf)
         
-        print(f"Initialized {self.n_points} Kalman filters")
+        print(f"Initialized {self.n_points} Kalman filters (warmup={self.warmup})")
     
     def track_frame(self, video_tensor: torch.Tensor, 
                    queries: torch.Tensor,
@@ -240,10 +302,16 @@ class KalmanTrackHybrid:
         start_time = time.time()
         used_cotracker = False
         
-        # Decide whether to run CoTracker3
-        if frame_idx % self.N == 0:
-            # Run CoTracker3 on this keyframe
-            positions, visibility = self._run_cotracker(video_tensor, queries, frame_idx)
+        # During warmup, always run tracker to get measurements for velocity estimation
+        # After warmup, run tracker every N frames
+        in_warmup = frame_idx < self.warmup
+        run_cotracker_this_frame = (self.cotracker_only or 
+                                   in_warmup or 
+                                   frame_idx % self.N == 0)
+        
+        if run_cotracker_this_frame:
+            # Run deep tracker on this keyframe
+            positions, visibility = self._run_tracker(video_tensor, queries, frame_idx)
             used_cotracker = True
             self.cotracker_calls += 1
             
@@ -252,13 +320,14 @@ class KalmanTrackHybrid:
                 if visibility[i] > 0.5:  # Only update if visible
                     self.kalman_filters[i].update(positions[i])
         else:
-            # Use Kalman prediction only
+            # Use Kalman prediction only (constant process noise)
             positions = np.zeros((self.n_points, 2))
             visibility = np.ones(self.n_points)
-            
+
             for i in range(self.n_points):
-                pred_state, _ = self.kalman_filters[i].predict()
-                positions[i] = pred_state[:2]
+                self.kalman_filters[i].predict()
+                pos, _, _ = self.kalman_filters[i].get_state()
+                positions[i] = pos
         
         # Get velocities and covariances
         velocities = np.zeros((self.n_points, 2))
@@ -282,11 +351,11 @@ class KalmanTrackHybrid:
             processing_time=processing_time
         )
     
-    def _run_cotracker(self, video_tensor: torch.Tensor,
-                      queries: torch.Tensor,
-                      frame_idx: int) -> Tuple[np.ndarray, np.ndarray]:
+    def _run_tracker(self, video_tensor: torch.Tensor,
+                     queries: torch.Tensor,
+                     frame_idx: int) -> Tuple[np.ndarray, np.ndarray]:
         """
-        Run CoTracker3 on current frame
+        Run the underlying deep tracker on the current frame.
         
         Args:
             video_tensor: Video tensor
@@ -296,16 +365,9 @@ class KalmanTrackHybrid:
         Returns:
             positions [N_points, 2], visibility [N_points]
         """
-        with torch.no_grad():
-            # Run CoTracker3 on video up to current frame
-            video_chunk = video_tensor[:, :frame_idx+1]
-            pred_tracks, pred_visibility = self.cotracker(video_chunk, queries=queries)
-        
-        # Extract positions at current frame
-        positions = pred_tracks[0, frame_idx].cpu().numpy()  # [N_points, 2]
-        visibility = pred_visibility[0, frame_idx].cpu().numpy()  # [N_points]
-        
-        return positions, visibility
+        if self.tracker is None:
+            self._ensure_tracker_loaded()
+        return self.tracker.track(video_tensor, queries, frame_idx)
     
     def get_statistics(self) -> Dict:
         """Get tracking statistics"""
@@ -314,7 +376,7 @@ class KalmanTrackHybrid:
             'cotracker_calls': self.cotracker_calls,
             'kalman_predictions': self.total_frames - self.cotracker_calls,
             'speedup_factor': self.total_frames / max(self.cotracker_calls, 1),
-            'cotracker_frequency': f"1/{self.N} frames"
+            'cotracker_frequency': "every frame (baseline)" if self.cotracker_only else f"1/{self.N} frames"
         }
 
 
