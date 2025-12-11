@@ -55,8 +55,8 @@ Frame N  ──► Deep Tracker ──► Kalman Update ──► Output
 ### Install K-track
 
 ```bash
-git clone git@bitbucket.org:aclabneu/k-track.git
-cd k-track
+git clone git@github.com:ostadabbas/K-Track-Kalman-Enhanced-Tracking.git
+cd K-Track-Kalman-Enhanced-Tracking
 pip install -r requirements.txt
 ```
 
@@ -226,7 +226,7 @@ If you use K-track in your research, please cite:
   title={K-track: Accelerating Off-the-Shelf Point Trackers with Kalman Filtering},
   author={Bishoy Galoaa and Pau Closas and Sarah Ostaddabas},
   year={2025},
-  url={https://bitbucket.org/aclabneu/k-track}
+  url={https://github.com/ostadabbas/K-Track-Kalman-Enhanced-Tracking}
 }
 ```
 
