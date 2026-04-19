@@ -222,11 +222,12 @@ The Kalman filter maintains:
 If you use K-track in your research, please cite:
 
 ```bibtex
-@software{k-track2025,
-  title={K-track: Accelerating Off-the-Shelf Point Trackers with Kalman Filtering},
-  author={Bishoy Galoaa and Pau Closas and Sarah Ostaddabas},
-  year={2025},
-  url={https://github.com/ostadabbas/K-Track-Kalman-Enhanced-Tracking}
+@inproceedings{galoaa2026ktrack,
+  author    = {Galoaa, Bishoy and Closas, Pau and Ostadabbas, Sarah},
+  title     = {K-Track: Kalman-Enhanced Tracking for Accelerating Deep Point Trackers on Edge Devices},
+  booktitle = {Proceedings of the IEEE/CVF Winter Conference on Applications of Computer Vision Workshops (WACVW)},
+  month={3},
+  year      = {2026}
 }
 ```
 
